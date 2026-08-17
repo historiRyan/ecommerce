@@ -1,17 +1,48 @@
 # 🛒 E-Commerce React App
 
-Aplikasi e-commerce modern dengan React, Vite, Tailwind CSS, dan Supabase.
+Aplikasi e-commerce modern dengan **React JS (Vite)**, **Tailwind CSS**, dan **Supabase**.
+
+---
 
 ## 🚀 Panduan Instalasi
-1. Clone repo: `git clone https://github.com/historiRyan/ecommerce.git`
-2. Masuk direktori: `cd ecommerce`
-3. Install: `npm install`
-4. Konfigurasi `.env` (isi Supabase URL & Anon Key).
-5. Jalankan: `npm run dev`
+
+1. **Clone repo:**
+   ```bash
+   git clone https://github.com/historiRyan/ecommerce.git
+   cd ecommerce
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+3. **Buat file `.env.local`** di root proyek dan salin isi berikut:
+   ```env
+   VITE_SUPABASE_URL=
+   VITE_SUPABASE_ANON_KEY=
+   ```
+
+   > Ganti dengan nilai sebenarnya dari **Project Settings > API** pada [supabase.com](https://supabase.com).
+
+4. **Jalankan development server:**
+   ```bash
+   npm run dev
+   ```
+
+   Buka `http://localhost:5173` di browser.
+
+---
 
 ## 🔎 Tampilan Aplikasi
+
 ![Screenshot Home 1](./src/assets/github.png)
 ![Screenshot Home 2](./src/assets/github2.png)
 
+---
+
 ## ⚠️ Keamanan
-Jangan push file `.env` ke publik.
+
+**Jangan pernah mengunggah file `.env.local` (atau file env apa pun yang berisi token asli) ke GitHub.**
+
+Pastikan `.env*` (termasuk `.env.local`) ada di dalam `.gitignore`.
