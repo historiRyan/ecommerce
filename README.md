@@ -2,7 +2,7 @@
 
 Aplikasi e-commerce modern dengan **React JS (Vite)**, **Tailwind CSS**, dan **Supabase**.
 
-🔗 **Live Demo:** [[https://pages.dev](https://pages.dev)](https://ecommerce-5w8.pages.dev/)
+🔗 **Live Demo:** [[https://pages.dev]](https://ecommerce-5w8.pages.dev/)
 
 ---
 
