@@ -2,6 +2,8 @@
 
 Aplikasi e-commerce modern dengan **React JS (Vite)**, **Tailwind CSS**, dan **Supabase**.
 
+🔗 **Live Demo:** [https://pages.dev](https://pages.dev)
+
 ---
 
 ## 🚀 Panduan Instalasi
@@ -46,3 +48,9 @@ Aplikasi e-commerce modern dengan **React JS (Vite)**, **Tailwind CSS**, dan **S
 **Jangan pernah mengunggah file `.env.local` (atau file env apa pun yang berisi token asli) ke GitHub.**
 
 Pastikan `.env*` (termasuk `.env.local`) ada di dalam `.gitignore`.
+
+---
+
+## 📖 Lisensi
+
+Proyek ini dilisensikan di bawah lisensi MIT.
