@@ -1,0 +1,11 @@
+name = "ecommerce-jwt-auth-server"
+main = "index.js"
+compatibility_date = "2024-08-19"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+WORKER = "true"
+JWT_EXPIRES_IN = "15m"
+COOKIE_NAME = "tokoryan_token"
+CLIENT_URL = "http://localhost:5173"
+ALLOWED_ORIGINS = ""

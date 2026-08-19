@@ -4,11 +4,15 @@ import jwt from "jsonwebtoken";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
+import serverless from "serverless-http";
 
-dotenv.config();
+try {
+  dotenv.config();
+} catch {
+  // Workers: tidak ada filesystem, env vars datang dari Worker environment
+}
 
 const app = express();
-const PORT = process.env.PORT || 4000;
 const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret_change_me";
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "15m";
 const COOKIE_NAME = process.env.COOKIE_NAME || "tokoryan_token";
@@ -161,6 +165,60 @@ app.get("/api/me", (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Server JWT auth berjalan di http://localhost:${PORT}`);
-});
+const isWorker = process.env.WORKER === "true";
+
+if (!isWorker) {
+  const PORT = process.env.PORT || 4000;
+  app.listen(PORT, () => {
+    console.log(`Server JWT auth berjalan di http://localhost:${PORT}`);
+  });
+}
+
+const handler = serverless(app);
+
+export default {
+  async fetch(request, env, _ctx) {
+    const url = new URL(request.url);
+    const headers = {};
+    for (const [key, value] of request.headers.entries()) {
+      headers[key] = value;
+    }
+
+    let body = "";
+    if (request.method !== "GET" && request.method !== "HEAD") {
+      body = await request.text();
+    }
+
+    const event = {
+      httpMethod: request.method,
+      path: url.pathname,
+      queryStringParameters: Object.fromEntries(url.searchParams.entries()),
+      headers,
+      multiValueHeaders: {},
+      body,
+      isBase64Encoded: false,
+      requestContext: {},
+    };
+
+    const result = await handler(event, {});
+
+    const responseHeaders = { ...result.headers };
+
+    if (result.multiValueHeaders && result.multiValueHeaders["set-cookie"]) {
+      delete responseHeaders["set-cookie"];
+      const response = new Response(result.body, {
+        status: result.statusCode,
+        headers: responseHeaders,
+      });
+      for (const cookie of result.multiValueHeaders["set-cookie"]) {
+        response.headers.append("set-cookie", cookie);
+      }
+      return response;
+    }
+
+    return new Response(result.body, {
+      status: result.statusCode,
+      headers: responseHeaders,
+    });
+  },
+};
