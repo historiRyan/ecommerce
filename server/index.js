@@ -19,6 +19,15 @@ const supabaseKey = process.env.SUPABASE_ANON_KEY || "";
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const allowedOrigins = new Set([CLIENT_URL]);
+
+// Origin tambahan untuk deployment online (pisahkan dengan koma).
+if (process.env.ALLOWED_ORIGINS) {
+  process.env.ALLOWED_ORIGINS.split(",")
+    .map((o) => o.trim())
+    .filter(Boolean)
+    .forEach((o) => allowedOrigins.add(o));
+}
+
 try {
   const u = new URL(CLIENT_URL);
   if (u.hostname === "localhost") {
@@ -46,6 +55,28 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(cookieParser());
+
+/**
+ * Deteksi koneksi HTTPS secara dinamis agar cookie JWT tidak ditolak browser
+ * saat online (HTTPS) maupun di laptop (HTTP / localhost).
+ * - COOKIE_SECURE=true|false memaksa nilai secara eksplisit.
+ * - Di balik reverse proxy / Cloudflare, header x-forwarded-proto === "https".
+ * - Di localhost HTTP tidak ada header tersebut (atau req.secure false) → secure=false.
+ */
+function isSecureRequest(req) {
+  if (process.env.COOKIE_SECURE === "true") return true;
+  if (process.env.COOKIE_SECURE === "false") return false;
+  return req.headers["x-forwarded-proto"] === "https" || req.secure;
+}
+
+function cookieOptions(req) {
+  return {
+    httpOnly: true,
+    secure: isSecureRequest(req),
+    sameSite: "lax",
+    path: "/",
+  };
+}
 
 app.post("/api/login", async (req, res) => {
   const { username, password } = req.body;
@@ -87,11 +118,8 @@ app.post("/api/login", async (req, res) => {
   );
 
   res.cookie(COOKIE_NAME, token, {
-    httpOnly: true,
-    secure: false,
-    sameSite: "lax",
+    ...cookieOptions(req),
     maxAge: 15 * 60 * 1000,
-    path: "/",
   });
 
   res.json({
@@ -112,12 +140,7 @@ app.post("/api/login", async (req, res) => {
 });
 
 app.post("/api/logout", (req, res) => {
-  res.clearCookie(COOKIE_NAME, {
-    httpOnly: true,
-    secure: false,
-    sameSite: "lax",
-    path: "/",
-  });
+  res.clearCookie(COOKIE_NAME, cookieOptions(req));
 
   res.json({ message: "Logout berhasil." });
 });
@@ -133,12 +156,7 @@ app.get("/api/me", (req, res) => {
     const payload = jwt.verify(token, JWT_SECRET);
     res.json({ user: payload });
   } catch {
-    res.clearCookie(COOKIE_NAME, {
-      httpOnly: true,
-      secure: false,
-      sameSite: "lax",
-      path: "/",
-    });
+    res.clearCookie(COOKIE_NAME, cookieOptions(req));
     res.status(401).json({ error: "Token tidak valid atau kadaluarsa." });
   }
 });
