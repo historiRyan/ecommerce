@@ -1,224 +1,281 @@
-import express from "express";
-import cors from "cors";
 import jwt from "jsonwebtoken";
-import cookieParser from "cookie-parser";
-import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
-import serverless from "serverless-http";
 
-try {
-  dotenv.config();
-} catch {
-  // Workers: tidak ada filesystem, env vars datang dari Worker environment
-}
+let _config = null;
+let _supabase = null;
 
-const app = express();
-const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret_change_me";
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "15m";
-const COOKIE_NAME = process.env.COOKIE_NAME || "tokoryan_token";
-const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
+function initConfig(env) {
+  if (_config) return _config;
 
-const supabaseUrl = process.env.SUPABASE_URL || "";
-const supabaseKey = process.env.SUPABASE_ANON_KEY || "";
-const supabase = createClient(supabaseUrl, supabaseKey);
+  const src = env || process.env;
 
-const allowedOrigins = new Set([CLIENT_URL]);
+  const jwtSecret = src.JWT_SECRET || "fallback_secret_change_me";
+  const jwtExpiresIn = src.JWT_EXPIRES_IN || "15m";
+  const cookieName = src.COOKIE_NAME || "tokoryan_token";
+  const clientUrl = src.CLIENT_URL || "http://localhost:5173";
+  const cookieSecure = src.COOKIE_SECURE || "";
 
-// Origin tambahan untuk deployment online (pisahkan dengan koma).
-if (process.env.ALLOWED_ORIGINS) {
-  process.env.ALLOWED_ORIGINS.split(",")
-    .map((o) => o.trim())
-    .filter(Boolean)
-    .forEach((o) => allowedOrigins.add(o));
-}
-
-try {
-  const u = new URL(CLIENT_URL);
-  if (u.hostname === "localhost") {
-    u.hostname = "127.0.0.1";
-    allowedOrigins.add(u.origin);
-  } else if (u.hostname === "127.0.0.1") {
-    u.hostname = "localhost";
-    allowedOrigins.add(u.origin);
+  const allowedOrigins = new Set([clientUrl]);
+  if (src.ALLOWED_ORIGINS) {
+    src.ALLOWED_ORIGINS.split(",")
+      .map((o) => o.trim())
+      .filter(Boolean)
+      .forEach((o) => allowedOrigins.add(o));
   }
-} catch {
-  // fallback: origin tidak valid, pakai CLIENT_URL saja
-}
 
-const corsOptions = {
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.has(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
+  try {
+    const u = new URL(clientUrl);
+    if (u.hostname === "localhost") {
+      u.hostname = "127.0.0.1";
+      allowedOrigins.add(u.origin);
+    } else if (u.hostname === "127.0.0.1") {
+      u.hostname = "localhost";
+      allowedOrigins.add(u.origin);
     }
-  },
-  credentials: true,
-};
+  } catch {
+    // fallback: origin tidak valid, pakai clientUrl saja
+  }
 
-app.use(cors(corsOptions));
-app.use(express.json());
-app.use(cookieParser());
+  _config = {
+    jwtSecret,
+    jwtExpiresIn,
+    cookieName,
+    clientUrl,
+    cookieSecure,
+    allowedOrigins,
+  };
 
-/**
- * Deteksi koneksi HTTPS secara dinamis agar cookie JWT tidak ditolak browser
- * saat online (HTTPS) maupun di laptop (HTTP / localhost).
- * - COOKIE_SECURE=true|false memaksa nilai secara eksplisit.
- * - Di balik reverse proxy / Cloudflare, header x-forwarded-proto === "https".
- * - Di localhost HTTP tidak ada header tersebut (atau req.secure false) → secure=false.
- */
-function isSecureRequest(req) {
-  if (process.env.COOKIE_SECURE === "true") return true;
-  if (process.env.COOKIE_SECURE === "false") return false;
-  return req.headers["x-forwarded-proto"] === "https" || req.secure;
+  const supabaseUrl = src.SUPABASE_URL || "";
+  const supabaseKey = src.SUPABASE_ANON_KEY || "";
+  if (supabaseUrl && supabaseKey) {
+    _supabase = createClient(supabaseUrl, supabaseKey);
+  }
+
+  return _config;
 }
 
-function cookieOptions(req) {
+function parseCookies(cookieHeader) {
+  const cookies = {};
+  if (!cookieHeader) return cookies;
+  cookieHeader.split(";").forEach((c) => {
+    const i = c.indexOf("=");
+    if (i > 0) {
+      const name = c.slice(0, i).trim();
+      const value = decodeURIComponent(c.slice(i + 1).trim());
+      cookies[name] = value;
+    }
+  });
+  return cookies;
+}
+
+function buildCookie(name, value, opts) {
+  let s = `${name}=${value}`;
+  s += `; Path=${opts.path || "/"}`;
+  if (opts.httpOnly !== false) s += "; HttpOnly";
+  if (opts.secure) s += "; Secure";
+  s += `; SameSite=${opts.sameSite || "lax"}`;
+  if (opts.maxAge) s += `; Max-Age=${Math.floor(opts.maxAge / 1000)}`;
+  return s;
+}
+
+function cookieOptsForRequest(request, config) {
+  const secure =
+    config.cookieSecure === "true" ||
+    (config.cookieSecure !== "false" &&
+      request.headers.get("x-forwarded-proto") === "https");
+
   return {
     httpOnly: true,
-    secure: isSecureRequest(req),
+    secure,
     sameSite: "lax",
     path: "/",
   };
 }
 
-app.post("/api/login", async (req, res) => {
-  const { username, password } = req.body;
-
-  if (!username || !password) {
-    return res.status(400).json({ error: "Username dan password wajib diisi." });
+function corsHeaders(request, origins) {
+  const origin = request.headers.get("origin");
+  if (origin && origins.has(origin)) {
+    return {
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Credentials": "true",
+    };
   }
+  return {};
+}
 
-  const { data: profile, error: supabaseError } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("username", username)
-    .eq("password", password)
-    .single();
-
-  if (supabaseError || !profile) {
-    return res.status(401).json({ error: "Username atau password salah." });
-  }
-
-  if (profile.approved === false) {
-    return res.status(403).json({
-      error: "Akun Anda belum disetujui oleh admin. Silakan hubungi administrator.",
-    });
-  }
-
-  const token = jwt.sign(
-    {
-      id: profile.id,
-      username: profile.username,
-      full_name: profile.full_name ?? null,
-      role: profile.role,
-      requested_role: profile.requested_role,
-      approved: profile.approved,
-      avatar_path: profile.avatar_path ?? null,
-      bio: profile.bio ?? null,
+function jsonResponse(data, status, request, origins, extraHeaders) {
+  return new Response(JSON.stringify(data), {
+    status: status || 200,
+    headers: {
+      "Content-Type": "application/json",
+      ...corsHeaders(request, origins),
+      ...extraHeaders,
     },
-    JWT_SECRET,
-    { expiresIn: JWT_EXPIRES_IN }
-  );
-
-  res.cookie(COOKIE_NAME, token, {
-    ...cookieOptions(req),
-    maxAge: 15 * 60 * 1000,
-  });
-
-  res.json({
-    message: "Login berhasil.",
-    user: {
-      id: profile.id,
-      username: profile.username,
-      full_name: profile.full_name ?? null,
-      role: profile.role,
-      requested_role: profile.requested_role,
-      approved: profile.approved,
-      avatar_path: profile.avatar_path ?? null,
-      bio: profile.bio ?? null,
-      created_at: profile.created_at ?? null,
-    },
-    token,
-  });
-});
-
-app.post("/api/logout", (req, res) => {
-  res.clearCookie(COOKIE_NAME, cookieOptions(req));
-
-  res.json({ message: "Logout berhasil." });
-});
-
-app.get("/api/me", (req, res) => {
-  const token = req.cookies[COOKIE_NAME];
-
-  if (!token) {
-    return res.status(401).json({ error: "Tidak terautentikasi." });
-  }
-
-  try {
-    const payload = jwt.verify(token, JWT_SECRET);
-    res.json({ user: payload });
-  } catch {
-    res.clearCookie(COOKIE_NAME, cookieOptions(req));
-    res.status(401).json({ error: "Token tidak valid atau kadaluarsa." });
-  }
-});
-
-const isWorker = process.env.WORKER === "true";
-
-if (!isWorker) {
-  const PORT = process.env.PORT || 4000;
-  app.listen(PORT, () => {
-    console.log(`Server JWT auth berjalan di http://localhost:${PORT}`);
   });
 }
 
-const handler = serverless(app);
+async function handleRequest(request, env) {
+  const config = initConfig(env);
+  const supabase = _supabase;
+
+  const url = new URL(request.url);
+  const path = url.pathname;
+  const method = request.method;
+
+  if (method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeaders(request, config.allowedOrigins) });
+  }
+
+  try {
+    if (path === "/api/login" && method === "POST") {
+      let body;
+      try {
+        body = await request.json();
+      } catch {
+        return jsonResponse(
+          { error: "Request body harus berupa JSON yang valid." },
+          400,
+          request,
+          config.allowedOrigins
+        );
+      }
+      const { username, password } = body;
+
+      if (!username || !password) {
+        return jsonResponse(
+          { error: "Username dan password wajib diisi." },
+          400,
+          request,
+          config.allowedOrigins
+        );
+      }
+
+      const { data: profile, error: supabaseError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("username", username)
+        .eq("password", password)
+        .single();
+
+      if (supabaseError || !profile) {
+        return jsonResponse(
+          { error: "Username atau password salah." },
+          401,
+          request,
+          config.allowedOrigins
+        );
+      }
+
+      if (profile.approved === false) {
+        return jsonResponse(
+          {
+            error: "Akun Anda belum disetujui oleh admin. Silakan hubungi administrator.",
+          },
+          403,
+          request,
+          config.allowedOrigins
+        );
+      }
+
+      const token = jwt.sign(
+        {
+          id: profile.id,
+          username: profile.username,
+          full_name: profile.full_name ?? null,
+          role: profile.role,
+          requested_role: profile.requested_role,
+          approved: profile.approved,
+          avatar_path: profile.avatar_path ?? null,
+          bio: profile.bio ?? null,
+        },
+        config.jwtSecret,
+        { expiresIn: config.jwtExpiresIn }
+      );
+
+      const opts = cookieOptsForRequest(request, config);
+      opts.maxAge = 15 * 60 * 1000;
+
+      return jsonResponse(
+        {
+          message: "Login berhasil.",
+          user: {
+            id: profile.id,
+            username: profile.username,
+            full_name: profile.full_name ?? null,
+            role: profile.role,
+            requested_role: profile.requested_role,
+            approved: profile.approved,
+            avatar_path: profile.avatar_path ?? null,
+            bio: profile.bio ?? null,
+            created_at: profile.created_at ?? null,
+          },
+          token,
+        },
+        200,
+        request,
+        config.allowedOrigins,
+        { "Set-Cookie": buildCookie(config.cookieName, token, opts) }
+      );
+    }
+
+    if (path === "/api/logout" && method === "POST") {
+      const opts = cookieOptsForRequest(request, config);
+      opts.maxAge = 0;
+
+      return jsonResponse(
+        { message: "Logout berhasil." },
+        200,
+        request,
+        config.allowedOrigins,
+        { "Set-Cookie": buildCookie(config.cookieName, "", opts) }
+      );
+    }
+
+    if (path === "/api/me" && method === "GET") {
+      const cookies = parseCookies(request.headers.get("cookie"));
+      const token = cookies[config.cookieName];
+
+      if (!token) {
+        return jsonResponse(
+          { error: "Tidak terautentikasi." },
+          401,
+          request,
+          config.allowedOrigins
+        );
+      }
+
+      try {
+        const payload = jwt.verify(token, config.jwtSecret);
+        return jsonResponse({ user: payload }, 200, request, config.allowedOrigins);
+      } catch {
+        const opts = cookieOptsForRequest(request, config);
+        opts.maxAge = 0;
+
+        return jsonResponse(
+          { error: "Token tidak valid atau kadaluarsa." },
+          401,
+          request,
+          config.allowedOrigins,
+          { "Set-Cookie": buildCookie(config.cookieName, "", opts) }
+        );
+      }
+    }
+
+    return jsonResponse({ error: "Not found" }, 404, request, config.allowedOrigins);
+  } catch {
+    return jsonResponse(
+      { error: "Internal server error" },
+      500,
+      request,
+      config.allowedOrigins
+    );
+  }
+}
+
+export { handleRequest };
 
 export default {
-  async fetch(request, env, _ctx) {
-    const url = new URL(request.url);
-    const headers = {};
-    for (const [key, value] of request.headers.entries()) {
-      headers[key] = value;
-    }
-
-    let body = "";
-    if (request.method !== "GET" && request.method !== "HEAD") {
-      body = await request.text();
-    }
-
-    const event = {
-      httpMethod: request.method,
-      path: url.pathname,
-      queryStringParameters: Object.fromEntries(url.searchParams.entries()),
-      headers,
-      multiValueHeaders: {},
-      body,
-      isBase64Encoded: false,
-      requestContext: {},
-    };
-
-    const result = await handler(event, {});
-
-    const responseHeaders = { ...result.headers };
-
-    if (result.multiValueHeaders && result.multiValueHeaders["set-cookie"]) {
-      delete responseHeaders["set-cookie"];
-      const response = new Response(result.body, {
-        status: result.statusCode,
-        headers: responseHeaders,
-      });
-      for (const cookie of result.multiValueHeaders["set-cookie"]) {
-        response.headers.append("set-cookie", cookie);
-      }
-      return response;
-    }
-
-    return new Response(result.body, {
-      status: result.statusCode,
-      headers: responseHeaders,
-    });
+  async fetch(request, env, ctx) {
+    return handleRequest(request, env);
   },
 };

@@ -5,21 +5,16 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "start": "node index.js",
+    "start": "node dev.js",
     "build": "echo 'No build needed'",
-    "dev": "nodemon index.js",
+    "dev": "nodemon dev.js",
     "dev:worker": "wrangler dev",
     "deploy": "wrangler deploy"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",
-    "bcryptjs": "^2.4.2",
-    "cookie-parser": "^1.4.6",
-    "cors": "^2.8.5",
     "dotenv": "^16.4.5",
-    "express": "^4.19.2",
-    "jsonwebtoken": "^9.0.2",
-    "serverless-http": "^4.0.0"
+    "jsonwebtoken": "^9.0.2"
   },
   "devDependencies": {
     "nodemon": "^3.1.0"
