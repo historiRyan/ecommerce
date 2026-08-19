@@ -15,13 +15,18 @@ export function LoginPage({ onTabChange }: { onTabChange: (tab: Tab) => void }) 
     e.preventDefault();
     setLoading(true);
     setErrorMsg(null);
-    const { error } = await login(username, password);
-    if (error) {
-      setErrorMsg(error);
-    } else {
-      onTabChange("home");
+    try {
+      const { error } = await login(username, password);
+      if (error) {
+        setErrorMsg(error);
+      } else {
+        onTabChange("home");
+      }
+    } catch {
+      setErrorMsg("Terjadi kesalahan saat masuk.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
