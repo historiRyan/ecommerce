@@ -123,7 +123,14 @@ async function handleRequest(request, env) {
   const method = request.method;
 
   if (method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: corsHeaders(request, config.allowedOrigins) });
+    return new Response(null, {
+      status: 204,
+      headers: {
+        ...corsHeaders(request, config.allowedOrigins),
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+      },
+    });
   }
 
   try {
