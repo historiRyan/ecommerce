@@ -24,13 +24,6 @@ if (!url || !key) {
 
 const admin = createClient(url, key, { auth: { persistSession: false } });
 
-const policies = [
-  { name: "Allow public read on products bucket", action: "select", using: "bucket_id = 'products'" },
-  { name: "Allow public upload on products bucket", action: "insert", using: null, check: "bucket_id = 'products'" },
-  { name: "Allow public update on products bucket", action: "update", using: "bucket_id = 'products'", check: "bucket_id = 'products'" },
-  { name: "Allow public delete on products bucket", action: "delete", using: "bucket_id = 'products'" },
-];
-
 (async () => {
   // Bucket
   const { data: buckets } = await admin.storage.listBuckets();

@@ -1,21 +1,64 @@
-import jwt from "jsonwebtoken";
-import { createClient } from "@supabase/supabase-js";
+import jwt, { SignOptions } from "jsonwebtoken";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-let _config = null;
-let _supabase = null;
+interface Config {
+  jwtSecret: string;
+  jwtExpiresIn: SignOptions["expiresIn"];
+  cookieName: string;
+  clientUrl: string;
+  cookieSecure: string;
+  allowedOrigins: Set<string>;
+}
 
-function initConfig(env) {
+interface CookieOpts {
+  path?: string;
+  httpOnly?: boolean;
+  secure?: boolean;
+  sameSite?: "lax" | "strict" | "none" | string;
+  maxAge?: number;
+}
+
+interface Profile {
+  id: string;
+  username: string;
+  password: string;
+  role: string;
+  requested_role: string;
+  approved: boolean;
+  full_name?: string | null;
+  avatar_path?: string | null;
+  bio?: string | null;
+  created_at?: string | null;
+}
+
+interface TokenPayload {
+  id: string;
+  username: string;
+  full_name: string | null;
+  role: string;
+  requested_role: string;
+  approved: boolean;
+  avatar_path: string | null;
+  bio: string | null;
+  iat?: number;
+  exp?: number;
+}
+
+let _config: Config | null = null;
+let _supabase: SupabaseClient | null = null;
+
+function initConfig(env: Record<string, string | undefined>): Config {
   if (_config) return _config;
 
   const src = env || process.env;
 
   const jwtSecret = src.JWT_SECRET || "fallback_secret_change_me";
-  const jwtExpiresIn = src.JWT_EXPIRES_IN || "15m";
+  const jwtExpiresIn = (src.JWT_EXPIRES_IN || "15m") as SignOptions["expiresIn"];
   const cookieName = src.COOKIE_NAME || "tokoryan_token";
   const clientUrl = src.CLIENT_URL || "http://localhost:5173";
   const cookieSecure = src.COOKIE_SECURE || "";
 
-  const allowedOrigins = new Set([clientUrl]);
+  const allowedOrigins = new Set<string>([clientUrl]);
   if (src.ALLOWED_ORIGINS) {
     src.ALLOWED_ORIGINS.split(",")
       .map((o) => o.trim())
@@ -54,8 +97,8 @@ function initConfig(env) {
   return _config;
 }
 
-function parseCookies(cookieHeader) {
-  const cookies = {};
+function parseCookies(cookieHeader: string | null): Record<string, string> {
+  const cookies: Record<string, string> = {};
   if (!cookieHeader) return cookies;
   cookieHeader.split(";").forEach((c) => {
     const i = c.indexOf("=");
@@ -68,7 +111,7 @@ function parseCookies(cookieHeader) {
   return cookies;
 }
 
-function buildCookie(name, value, opts) {
+function buildCookie(name: string, value: string, opts: CookieOpts): string {
   let s = `${name}=${value}`;
   s += `; Path=${opts.path || "/"}`;
   if (opts.httpOnly !== false) s += "; HttpOnly";
@@ -78,7 +121,7 @@ function buildCookie(name, value, opts) {
   return s;
 }
 
-function cookieOptsForRequest(request, config) {
+function cookieOptsForRequest(request: Request, config: Config): CookieOpts {
   const secure =
     config.cookieSecure === "true" ||
     (config.cookieSecure !== "false" &&
@@ -92,7 +135,10 @@ function cookieOptsForRequest(request, config) {
   };
 }
 
-function corsHeaders(request, origins) {
+function corsHeaders(
+  request: Request,
+  origins: Set<string>
+): Record<string, string> {
   const origin = request.headers.get("origin");
   if (origin && origins.has(origin)) {
     return {
@@ -103,7 +149,13 @@ function corsHeaders(request, origins) {
   return {};
 }
 
-function jsonResponse(data, status, request, origins, extraHeaders) {
+function jsonResponse(
+  data: unknown,
+  status: number | undefined,
+  request: Request,
+  origins: Set<string>,
+  extraHeaders?: Record<string, string>
+): Response {
   return new Response(JSON.stringify(data), {
     status: status || 200,
     headers: {
@@ -114,7 +166,10 @@ function jsonResponse(data, status, request, origins, extraHeaders) {
   });
 }
 
-async function handleRequest(request, env) {
+async function handleRequest(
+  request: Request,
+  env: Record<string, string | undefined>
+): Promise<Response> {
   const config = initConfig(env);
   const supabase = _supabase;
 
@@ -134,8 +189,17 @@ async function handleRequest(request, env) {
   }
 
   try {
+    if (!supabase) {
+      return jsonResponse(
+        { error: "Supabase client belum diinisialisasi." },
+        500,
+        request,
+        config.allowedOrigins
+      );
+    }
+
     if (path === "/api/login" && method === "POST") {
-      let body;
+      let body: unknown;
       try {
         body = await request.json();
       } catch {
@@ -146,7 +210,7 @@ async function handleRequest(request, env) {
           config.allowedOrigins
         );
       }
-      const { username, password } = body;
+      const { username, password } = body as { username?: string; password?: string };
 
       if (!username || !password) {
         return jsonResponse(
@@ -173,7 +237,9 @@ async function handleRequest(request, env) {
         );
       }
 
-      if (profile.approved === false) {
+      const typedProfile = profile as Profile;
+
+      if (typedProfile.approved === false) {
         return jsonResponse(
           {
             error: "Akun Anda belum disetujui oleh admin. Silakan hubungi administrator.",
@@ -186,14 +252,14 @@ async function handleRequest(request, env) {
 
       const token = jwt.sign(
         {
-          id: profile.id,
-          username: profile.username,
-          full_name: profile.full_name ?? null,
-          role: profile.role,
-          requested_role: profile.requested_role,
-          approved: profile.approved,
-          avatar_path: profile.avatar_path ?? null,
-          bio: profile.bio ?? null,
+          id: typedProfile.id,
+          username: typedProfile.username,
+          full_name: typedProfile.full_name ?? null,
+          role: typedProfile.role,
+          requested_role: typedProfile.requested_role,
+          approved: typedProfile.approved,
+          avatar_path: typedProfile.avatar_path ?? null,
+          bio: typedProfile.bio ?? null,
         },
         config.jwtSecret,
         { expiresIn: config.jwtExpiresIn }
@@ -206,15 +272,15 @@ async function handleRequest(request, env) {
         {
           message: "Login berhasil.",
           user: {
-            id: profile.id,
-            username: profile.username,
-            full_name: profile.full_name ?? null,
-            role: profile.role,
-            requested_role: profile.requested_role,
-            approved: profile.approved,
-            avatar_path: profile.avatar_path ?? null,
-            bio: profile.bio ?? null,
-            created_at: profile.created_at ?? null,
+            id: typedProfile.id,
+            username: typedProfile.username,
+            full_name: typedProfile.full_name ?? null,
+            role: typedProfile.role,
+            requested_role: typedProfile.requested_role,
+            approved: typedProfile.approved,
+            avatar_path: typedProfile.avatar_path ?? null,
+            bio: typedProfile.bio ?? null,
+            created_at: typedProfile.created_at ?? null,
           },
           token,
         },
@@ -252,7 +318,7 @@ async function handleRequest(request, env) {
       }
 
       try {
-        const payload = jwt.verify(token, config.jwtSecret);
+        const payload = jwt.verify(token, config.jwtSecret) as TokenPayload;
         return jsonResponse({ user: payload }, 200, request, config.allowedOrigins);
       } catch {
         const opts = cookieOptsForRequest(request, config);
@@ -282,7 +348,10 @@ async function handleRequest(request, env) {
 export { handleRequest };
 
 export default {
-  async fetch(request, env, ctx) {
+  async fetch(
+    request: Request,
+    env: Record<string, string | undefined>
+  ): Promise<Response> {
     return handleRequest(request, env);
   },
 };

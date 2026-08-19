@@ -2,14 +2,15 @@
   "name": "ecommerce-jwt-auth-server",
   "version": "1.0.0",
   "description": "Backend API JWT auth dengan HttpOnly Cookie untuk e-commerce",
-  "main": "index.js",
+  "main": "index.ts",
   "type": "module",
   "scripts": {
-    "start": "node dev.js",
+    "start": "tsx dev.ts",
     "build": "echo 'No build needed'",
-    "dev": "nodemon dev.js",
+    "dev": "nodemon --exec tsx dev.ts",
     "dev:worker": "wrangler dev",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",
@@ -17,6 +18,10 @@
     "jsonwebtoken": "^9.0.2"
   },
   "devDependencies": {
-    "nodemon": "^3.1.0"
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/node": "^22.5.0",
+    "nodemon": "^3.1.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.3"
   }
 }

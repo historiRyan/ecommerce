@@ -1,11 +1,8 @@
-fetch("https://api.supabase.com/v1/projects/mtenqqxvrxuuhzrdxexp/sql", {
-  method: "POST",
-  headers: {
-    "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im10ZW5xcXh2cnh1dWh6cmR4ZXhwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjMzNzg2NiwiZXhwIjoyMTAxOTEzODY2fQ.soo4e70_ferQLGmwuMJlLOYt0G7ApZzaGa4sAiwyPDM",
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({
-    query: `
+const SUPABASE_PROJECT_REF = "mtenqqxvrxuuhzrdxexp";
+const SUPABASE_SERVICE_ROLE =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im10ZW5xcXh2cnh1dWh6cmR4ZXhwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjMzNzg2NiwiZXhwIjoyMTAxOTEzODY2fQ.soo4e70_ferQLGmwuMJlLOYt0G7ApZzaGa4sAiwyPDM";
+
+const PROFILES_SQL = `
 ALTER TABLE public.profiles
     ADD COLUMN IF NOT EXISTS requested_role text NOT NULL DEFAULT 'customer',
     ADD COLUMN IF NOT EXISTS approved boolean NOT NULL DEFAULT true;
@@ -13,7 +10,7 @@ ALTER TABLE public.profiles
 UPDATE public.profiles SET approved = true WHERE approved IS NULL;
 UPDATE public.profiles SET requested_role = role WHERE requested_role IS NULL OR requested_role = '';
 
-DO \$\$
+DO $
 BEGIN
     IF EXISTS (
         SELECT 1 FROM information_schema.table_constraints
@@ -27,7 +24,7 @@ BEGIN
         CHECK (role IN ('admin', 'toko', 'courier', 'customer'));
 EXCEPTION
     WHEN OTHERS THEN NULL;
-END \$\$;
+END $;
 
 create index if not exists profiles_requested_role_idx on public.profiles (requested_role);
 create index if not exists profiles_approved_idx on public.profiles (approved);
@@ -42,12 +39,9 @@ ON CONFLICT (username) DO UPDATE SET
   role = EXCLUDED.role,
   requested_role = EXCLUDED.requested_role,
   approved = true;
-`
-  })
-})
-  .then(r => r.json())
-  .then(d => {
-    const sql = `
+`;
+
+const TABLES_SQL = `
 create table if not exists public.orders (
   id uuid primary key default gen_random_uuid(),
   customer_id uuid references public.profiles (id) on delete set null,
@@ -64,7 +58,7 @@ create index if not exists orders_customer_idx on public.orders (customer_id);
 create index if not exists orders_toko_idx on public.orders (toko_id);
 create index if not exists orders_status_idx on public.orders (status);
 
-create or replace function public.set_orders_updated_at() returns trigger language plpgsql as \$\$ begin new.updated_at = now(); return new; end; \$\$;
+create or replace function public.set_orders_updated_at() returns trigger language plpgsql as $ begin new.updated_at = now(); return new; end; $;
 create trigger _orders_updated_at before update on public.orders for each row execute function public.set_orders_updated_at();
 
 create table if not exists public.shipments (
@@ -85,7 +79,7 @@ create index if not exists shipments_order_idx on public.shipments (order_id);
 create index if not exists shipments_courier_idx on public.shipments (courier_id);
 create index if not exists shipments_status_idx on public.shipments (status);
 
-create or replace function public.set_shipments_updated_at() returns trigger language plpgsql as \$\$ begin new.updated_at = now(); return new; end; \$\$;
+create or replace function public.set_shipments_updated_at() returns trigger language plpgsql as $ begin new.updated_at = now(); return new; end; $;
 create trigger _shipments_updated_at before update on public.shipments for each row execute function public.set_shipments_updated_at();
 
 create table if not exists public.order_items (
@@ -99,25 +93,38 @@ create table if not exists public.order_items (
 create index if not exists order_items_order_idx on public.order_items (order_id);
 create index if not exists order_items_product_idx on public.order_items (product_id);
 `;
-  return fetch("https://api.supabase.com/v1/projects/mtenqqxvrxuuhzrdxexp/sql", {
+
+const SELECT_PROFILES_SQL =
+  "SELECT username, role, requested_role, approved FROM public.profiles ORDER BY username;";
+
+const SUPABASE_API = `https://api.supabase.com/v1/projects/${SUPABASE_PROJECT_REF}/sql`;
+
+async function runSql(sql: string): Promise<unknown> {
+  const res = await fetch(SUPABASE_API, {
     method: "POST",
     headers: {
-      "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im10ZW5xcXh2cnh1dWh6cmR4ZXhwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjMzNzg2NiwiZXhwIjoyMTAxOTEzODY2fQ.soo4e70_ferQLGmwuMJlLOYt0G7ApZzaGa4sAiwyPDM",
-      "Content-Type": "application/json"
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE}`,
+      "Content-Type": "application/json",
     },
-    body: JSON.stringify({ query: sql })
-  }).then(r => r.json()).then(d2 => {
-    console.log("Tables created:", d2);
-    return fetch("https://api.supabase.com/v1/projects/mtenqqxvrxuuhzrdxexp/sql", {
-      method: "POST",
-      headers: {
-        "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im10ZW5xcXh2cnh1dWh6cmR4ZXhwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjMzNzg2NiwiZXhwIjoyMTAxOTEzODY2fQ.soo4e70_ferQLGmwuMJlLOYt0G7ApZzaGa4sAiwyPDM",
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ query: "SELECT username, role, requested_role, approved FROM public.profiles ORDER BY username;" })
-    }).then(r => r.json()).then(d3 => {
-      console.log("Profiles:", JSON.stringify(d3, null, 2));
-    });
+    body: JSON.stringify({ query: sql }),
   });
-})
-  .catch(err => console.error("Error:", err));
+  return res.json();
+}
+
+async function main(): Promise<void> {
+  try {
+    const d1 = await runSql(PROFILES_SQL);
+    console.log("Profiles updated:", JSON.stringify(d1, null, 2));
+
+    const d2 = await runSql(TABLES_SQL);
+    console.log("Tables created:", JSON.stringify(d2, null, 2));
+
+    const d3 = await runSql(SELECT_PROFILES_SQL);
+    console.log("Profiles:", JSON.stringify(d3, null, 2));
+  } catch (err) {
+    const e = err as Error;
+    console.error("Error:", e.message);
+  }
+}
+
+main();

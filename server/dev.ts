@@ -1,6 +1,6 @@
 import http from "http";
 import dotenv from "dotenv";
-import { handleRequest } from "./index.js";
+import { handleRequest } from "./index";
 
 try {
   dotenv.config();
@@ -8,30 +8,30 @@ try {
   // ignore: .env not found
 }
 
-const PORT = process.env.PORT || 4000;
+const PORT: number = process.env.PORT ? parseInt(process.env.PORT, 10) : 4000;
 
 http
   .createServer(async (req, res) => {
     const origin = `http://localhost:${PORT}`;
-    const headers = {};
+    const headers: Record<string, string> = {};
     for (const [k, v] of Object.entries(req.headers)) {
       if (v !== undefined) {
         headers[k] = Array.isArray(v) ? v.join(", ") : v;
       }
     }
 
-    const chunks = [];
+    const chunks: Buffer[] = [];
     for await (const chunk of req) {
-      chunks.push(chunk);
+      chunks.push(Buffer.from(chunk));
     }
     const body = chunks.length > 0 ? Buffer.concat(chunks) : undefined;
-    const init = { method: req.method || "GET", headers };
+    const init: RequestInit = { method: req.method || "GET", headers };
     if (body && body.length > 0) init.body = body;
     const workerReq = new Request(origin + (req.url || "/"), init);
 
     const workerRes = await handleRequest(workerReq, process.env);
 
-    const resHeaders = {};
+    const resHeaders: Record<string, string> = {};
     for (const [k, v] of workerRes.headers.entries()) {
       resHeaders[k] = v;
     }

@@ -1,9 +1,9 @@
-const puppeteer = require("puppeteer-core");
+import * as puppeteer from "puppeteer-core";
 
 const chromePath =
   "C:\\Users\\ryant\\.cache\\puppeteer\\chrome\\win64-151.0.7922.71\\chrome-win64\\chrome.exe";
 
-(async () => {
+(async (): Promise<void> => {
   const browser = await puppeteer.launch({
     executablePath: chromePath,
     headless: "new",
@@ -12,8 +12,8 @@ const chromePath =
 
   const page = await browser.newPage();
 
-  const consoleMessages = [];
-  const errors = [];
+  const consoleMessages: string[] = [];
+  const errors: string[] = [];
 
   page.on("console", (msg) => {
     consoleMessages.push(`[${msg.type()}] ${msg.text()}`);
@@ -32,10 +32,13 @@ const chromePath =
       waitUntil: "networkidle0",
       timeout: 20000,
     });
-    await page.waitForFunction(() => document.body.innerText.length > 0, { timeout: 15000 }).catch((e) => errors.push(`Wait error: ${e.message}`));
+    await page
+      .waitForFunction(() => document.body.innerText.length > 0, { timeout: 15000 })
+      .catch((e) => errors.push(`Wait error: ${(e as Error).message}`));
     await new Promise((r) => setTimeout(r, 3000));
   } catch (e) {
-    errors.push(`Navigation error: ${e.message}`);
+    const err = e as Error;
+    errors.push(`Navigation error: ${err.message}`);
   }
 
   console.log("\n=== CONSOLE MESSAGES ===");

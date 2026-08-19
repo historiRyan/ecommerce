@@ -1,5 +1,5 @@
 name = "ecommerce-jwt-auth-server"
-main = "index.js"
+main = "index.ts"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 
