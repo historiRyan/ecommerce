@@ -25,6 +25,7 @@ export function ShopPage({ onOpenProduct }: { onOpenProduct: (p: Product) => voi
   const [sort, setSort] = useState<SortKey>("featured");
   const [sortOpen, setSortOpen] = useState(false);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     const handler = (e: CustomEvent) => {
@@ -38,6 +39,12 @@ export function ShopPage({ onOpenProduct }: { onOpenProduct: (p: Product) => voi
     window.addEventListener("shop-filter-category", handler as EventListener);
     return () => window.removeEventListener("shop-filter-category", handler as EventListener);
   }, [categories]);
+
+  useEffect(() => {
+    const handler = (e: CustomEvent) => setSearchQuery((e.detail as string).trim().toLowerCase());
+    window.addEventListener("navbar-search", handler as EventListener);
+    return () => window.removeEventListener("navbar-search", handler as EventListener);
+  }, []);
 
   const toggleCat = (name: string) =>
     setSelectedCats((prev) =>
@@ -54,6 +61,7 @@ export function ShopPage({ onOpenProduct }: { onOpenProduct: (p: Product) => voi
       if (selectedCats.length && !selectedCats.includes(p.category)) return false;
       if (maxPrice !== null && p.price > maxPrice) return false;
       if (minRating > 0 && p.rating < minRating) return false;
+      if (searchQuery && !(p.name.toLowerCase().includes(searchQuery) || p.category.toLowerCase().includes(searchQuery))) return false;
       return true;
     });
     switch (sort) {

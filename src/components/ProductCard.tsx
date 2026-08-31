@@ -69,13 +69,8 @@ export function ProductCard({
                 {formatPrice(product.originalPrice)}
               </span>
             )}
-          </div>
-          {product.originalPrice && product.originalPrice > product.price && (
-            <span className="w-max rounded-md bg-rose-50 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700">
-              -{Math.round((1 - product.price / product.originalPrice) * 100)}%
-            </span>
-          )}
-        </div>
+            </div>
+            </div>
         <div className="mt-1 flex items-center justify-between gap-2 overflow-hidden text-xs">
           <span className={`truncate font-medium ${(product.stockQuantity ?? 0) > 0 ? "text-emerald-600" : "text-rose-600"}`}>
             Stock: {product.stockQuantity ?? 0}
