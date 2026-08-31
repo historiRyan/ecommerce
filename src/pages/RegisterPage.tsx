@@ -6,18 +6,39 @@ import type { Tab } from "@/components/Navbar";
 export function RegisterPage({ onTabChange }: { onTabChange: (tab: Tab) => void }) {
   const { register } = useAuth();
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [requestedRole, setRequestedRole] = useState<"customer" | "toko" | "courier">("customer");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const pwValid = password.length >= 6;
+  const match = password === confirm && confirm.length > 0;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setErrorMsg(null);
     setSuccessMsg(null);
+    if (!emailValid) {
+      setErrorMsg("Masukkan alamat email yang valid.");
+      setLoading(false);
+      return;
+    }
+    if (!pwValid) {
+      setErrorMsg("Kata sandi minimal 6 karakter.");
+      setLoading(false);
+      return;
+    }
+    if (!match) {
+      setErrorMsg("Konfirmasi kata sandi tidak cocok.");
+      setLoading(false);
+      return;
+    }
     const { error } = await register(username, password, requestedRole);
     if (error) {
       setErrorMsg(error);
@@ -90,6 +111,23 @@ export function RegisterPage({ onTabChange }: { onTabChange: (tab: Tab) => void 
 
           <div>
             <label className="mb-1.5 block text-xs font-medium text-slate-700">
+              Email
+            </label>
+            <div className="relative">
+              <User size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="kamu@contoh.com"
+                required
+                className={`w-full rounded-lg border bg-white px-10 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 ${emailValid || email === "" ? "border-slate-200 focus:border-indigo-400" : "border-rose-300"}`}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-slate-700">
               Kata sandi
             </label>
             <div className="relative">
@@ -101,7 +139,7 @@ export function RegisterPage({ onTabChange }: { onTabChange: (tab: Tab) => void 
                 placeholder="Minimal 6 karakter"
                 required
                 minLength={6}
-                className="w-full rounded-lg border border-slate-200 bg-white px-10 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                className={`w-full rounded-lg border bg-white px-10 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 ${pwValid || password === "" ? "border-slate-200 focus:border-indigo-400" : "border-rose-300"}`}
               />
               <button
                 type="button"
@@ -110,6 +148,23 @@ export function RegisterPage({ onTabChange }: { onTabChange: (tab: Tab) => void 
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-slate-700">
+              Konfirmasi kata sandi
+            </label>
+            <div className="relative">
+              <Lock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type={showPassword ? "text" : "password"}
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                placeholder="Ulangi kata sandi"
+                required
+                className={`w-full rounded-lg border bg-white px-10 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 ${match || confirm === "" ? "border-slate-200 focus:border-indigo-400" : "border-rose-300"}`}
+              />
             </div>
           </div>
 
