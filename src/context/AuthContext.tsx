@@ -4,7 +4,6 @@ import type { Profile, Role } from "@/data/profile";
 
 const JWT_AUTH_BASE_URL = import.meta.env.VITE_JWT_AUTH_URL || "http://localhost:4000";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as unknown as { from: (table: string) => any };
 
 interface JwtUser {
