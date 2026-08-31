@@ -81,7 +81,7 @@ export function ProductDetailPage({
             <span className="text-sm font-medium text-slate-700">{product.rating}</span>
             <span className="text-sm text-slate-400">·</span>
             <button className="text-sm text-slate-500 hover:text-indigo-600">
-              {product.reviewCount} reviews
+              {product.reviewCount} ulasan
             </button>
           </div>
 
@@ -271,7 +271,7 @@ function RelatedProducts({
   if (related.length === 0) return null;
   return (
     <section className="mt-16">
-          <h2 className="mb-6 text-2xl font-bold tracking-tight text-slate-900">Produk lain yang cocok</h2>
+          <h2 className="mb-6 text-2xl font-bold tracking-tight text-slate-900">Produk lain yang mungkin Anda suka</h2>
       <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-4">
         {related.map((p) => (
           <button

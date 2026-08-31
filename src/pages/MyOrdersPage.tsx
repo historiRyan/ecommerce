@@ -363,7 +363,6 @@ function ReviewList({ order, profile }: ReviewListProps) {
 
   useEffect(() => {
     loadMyReviews();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order.id]);
 
   const setRating = (productId: string, value: number) =>

@@ -20,7 +20,6 @@ export type OrderItemRow = Database["public"]["Tables"]["order_items"]["Row"];
 type ChatRoomRow = Database["public"]["Tables"]["chat_rooms"]["Row"];
 type ChatMessageRow = Database["public"]["Tables"]["chat_messages"]["Row"];
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as unknown as { from: (table: string) => any };
 
 export const productsApi = {
@@ -361,20 +360,24 @@ export const reviewsApi = {
   },
 
   async hasBoughtProduct(productId: string, customerId: string): Promise<boolean> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabaseAny = supabase as any;
-    const { data, error } = await supabaseAny.rpc("customer_bought_product", {
+    type RpcResult = { data: boolean | null; error: { message?: string } | null };
+    const supabaseRpc = supabase as unknown as {
+      rpc: (fn: string, args: Record<string, string>) => Promise<RpcResult>;
+    };
+    const { data, error } = await supabaseRpc.rpc("customer_bought_product", {
       p_customer: customerId,
       p_product: productId,
     });
     if (error) throw error;
-    return (data as boolean) ?? false;
+    return data ?? false;
   },
 
   async hasBoughtInOrder(customerId: string, orderId: string): Promise<boolean> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabaseAny = supabase as any;
-    const { data, error } = await supabaseAny.rpc("customer_bought_in_order", {
+    type RpcResult = { data: boolean | null; error: { message?: string } | null };
+    const supabaseRpc = supabase as unknown as {
+      rpc: (fn: string, args: Record<string, string>) => Promise<RpcResult>;
+    };
+    const { data, error } = await supabaseRpc.rpc("customer_bought_in_order", {
       p_customer: customerId,
       p_order: orderId,
     });
