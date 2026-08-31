@@ -32,6 +32,7 @@ export function Navbar({
   onTabChange: (tab: Tab) => void;
 }) {
    const [mobileOpen, setMobileOpen] = useState(false);
+  const [search, setSearch] = useState("");
   const { count } = useCart();
   const { profile, logout } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
@@ -128,6 +129,16 @@ export function Navbar({
           <div className="flex w-full items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 transition-colors focus-within:border-indigo-400 focus-within:bg-white">
             <Search size={16} className="text-slate-400" />
             <input
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                window.dispatchEvent(new CustomEvent("navbar-search", { detail: e.target.value }));
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && search.trim()) {
+                  onTabChange("shop");
+                }
+              }}
               placeholder="Cari produk..."
               className="w-full bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
             />
