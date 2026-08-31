@@ -1,8 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { Navbar, type Tab } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { HomePage } from "@/pages/HomePage";
-import { ShopPage } from "@/pages/ShopPage";
 import { ProductDetailPage } from "@/pages/ProductDetailPage";
 import { CartCheckoutPage } from "@/pages/CartCheckoutPage";
 import { LoginPage } from "@/pages/LoginPage";
@@ -13,10 +12,17 @@ import { CourierPage } from "@/pages/CourierPage";
 import { MyOrdersPage } from "@/pages/MyOrdersPage";
 import { ChatPage } from "@/pages/ChatPage";
 import { ProfilePage } from "@/pages/ProfilePage";
+import { WishlistPage } from "@/pages/WishlistPage";
 import { CartProvider } from "@/context/CartContext";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { ProductsProvider, useProducts } from "@/context/ProductsContext";
+import { WishlistProvider } from "@/context/WishlistContext";
+import { AddToCartToast } from "@/components/AddToCartToast";
 import type { Product } from "@/data/products";
+
+const ShopPage = lazy(() =>
+  import("@/pages/ShopPage").then((m) => ({ default: m.ShopPage }))
+);
 
 function AppContent() {
   const [tab, setTab] = useState<Tab>("home");
@@ -149,10 +155,15 @@ function AppContent() {
 
   return (
     <>
+
       <Navbar active={tab} onTabChange={changeTab} />
       <main className="flex-1">
         {tab === "home" && <HomePage onTabChange={changeTab} onOpenProduct={openProduct} />}
-        {tab === "shop" && <ShopPage onOpenProduct={openProduct} />}
+        {tab === "shop" && (
+          <Suspense fallback={<div className="mx-auto max-w-7xl px-4 py-8 text-sm text-slate-500">Memuat...</div>}>
+            <ShopPage onOpenProduct={openProduct} />
+          </Suspense>
+        )}
         {tab === "product" && activeProduct && (
           <ProductDetailPage
             product={activeProduct}
@@ -161,8 +172,10 @@ function AppContent() {
           />
         )}
         {tab === "cart" && <CartCheckoutPage onTabChange={changeTab} />}
+        {tab === "wishlist" && <WishlistPage onTabChange={changeTab} />}
       </main>
       <Footer onTabChange={changeTab} />
+      <AddToCartToast />
     </>
   );
 }
@@ -172,9 +185,11 @@ function App() {
     <CartProvider>
       <AuthProvider>
         <ProductsProvider>
-          <div className="flex min-h-screen flex-col bg-slate-50">
-            <AppContent />
-          </div>
+          <WishlistProvider>
+            <div className="flex min-h-screen flex-col bg-slate-50">
+              <AppContent />
+            </div>
+          </WishlistProvider>
         </ProductsProvider>
       </AuthProvider>
     </CartProvider>

@@ -1,7 +1,9 @@
 import type { Product } from "@/data/products";
 import { formatPrice } from "@/data/products";
 import { StarRating } from "@/components/StarRating";
-import { ShoppingBag } from "lucide-react";
+import { ShoppingBag, Heart } from "lucide-react";
+import { useState } from "react";
+import { useWishlist } from "@/context/WishlistContext";
 
 export function ProductCard({
   product,
@@ -12,6 +14,9 @@ export function ProductCard({
   onOpen: () => void;
   onQuickAdd: () => void;
 }) {
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const { has, toggle } = useWishlist();
+  const wished = has(product.id);
   const discount = product.originalPrice
     ? Math.round((1 - product.price / product.originalPrice) * 100)
     : 0;
@@ -32,11 +37,15 @@ export function ProductCard({
             </span>
       )}
       <div className="relative aspect-square overflow-hidden rounded-xl bg-slate-100">
+        {!imgLoaded && (
+          <div className="absolute inset-0 animate-pulse bg-slate-200" />
+        )}
         <img
           src={product.images[0]}
           alt={product.name}
           loading="lazy"
-          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          onLoad={() => setImgLoaded(true)}
+          className={`h-full w-full object-cover transition-transform duration-500 group-hover:scale-105 ${imgLoaded ? "opacity-100" : "opacity-0"}`}
         />
         <button
           onClick={(e) => {
@@ -46,6 +55,16 @@ export function ProductCard({
           className="absolute bottom-3 left-3 right-3 flex translate-y-3 items-center justify-center gap-2 rounded-xl bg-slate-900 py-2.5 text-sm font-medium text-white opacity-0 shadow-lg transition-all duration-300 hover:bg-indigo-600 group-hover:translate-y-0 group-hover:opacity-100"
         >
           <ShoppingBag size={16} /> Tambah cepat
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            toggle(product);
+          }}
+          className={`absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-full bg-white/90 shadow-sm backdrop-blur transition-colors ${wished ? "text-rose-600" : "text-slate-500 hover:text-rose-600"}`}
+          title={wished ? "Hapus dari wishlist" : "Tambah ke wishlist"}
+        >
+          <Heart size={16} fill={wished ? "currentColor" : "none"} />
         </button>
       </div>
       <div className="px-1 pt-3">

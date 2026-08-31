@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Search, ShoppingBag, Menu, X, Heart, LogIn, LogOut, Shield, Store, Truck, Clock, MessageCircle, User } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
+import { useWishlist } from "@/context/WishlistContext";
 import { chatsApi } from "@/data/productsApi";
 import { getAvatarOrDefaultUrl } from "@/lib/supabase";
 
@@ -10,6 +11,7 @@ export type Tab =
   | "shop"
   | "product"
   | "cart"
+  | "wishlist"
   | "login"
   | "register"
   | "admin"
@@ -35,6 +37,7 @@ export function Navbar({
   const [search, setSearch] = useState("");
   const { count } = useCart();
   const { profile, logout } = useAuth();
+  const { count: wishlistCount } = useWishlist();
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
@@ -151,6 +154,18 @@ export function Navbar({
           </button>
           {profile && (
             <>
+              <button
+                onClick={() => onTabChange("wishlist")}
+                className="relative hidden rounded-lg p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-rose-600 sm:flex"
+                title="Wishlist"
+              >
+                <Heart size={20} />
+                {wishlistCount > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 grid h-4.5 min-w-[18px] place-items-center rounded-full bg-rose-600 px-1 text-[10px] font-bold text-white">
+                    {wishlistCount > 9 ? "9+" : wishlistCount}
+                  </span>
+                )}
+              </button>
               <button
                 onClick={() => onTabChange("chat")}
                 className="relative hidden rounded-lg p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-indigo-600 sm:flex"
@@ -273,6 +288,17 @@ export function Navbar({
               className="block w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium text-slate-600 hover:bg-slate-50"
             >
               Masuk / Daftar
+            </button>
+          )}
+          {profile && (
+            <button
+              onClick={() => {
+                onTabChange("wishlist");
+                setMobileOpen(false);
+              }}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-slate-600 hover:bg-slate-50"
+            >
+              <Heart size={16} className="inline" /> Wishlist
             </button>
           )}
         </div>
