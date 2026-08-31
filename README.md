@@ -1,8 +1,8 @@
-# 🛒 E-Commerce React App
+# 🛒 TokoRyan — E-Commerce Premium
 
-Aplikasi e-commerce modern dengan **React JS (Vite)**, **Tailwind CSS**, dan **Supabase**.
+Aplikasi e-commerce modern dengan **React (Vite) + TypeScript**, **Tailwind CSS**, dan **Supabase** sebagai backend. Mendukung multi-peran (admin, toko, kurir, customer), keranjang persisten, wishlist, checkout, hingga panel manajemen produk.
 
-🔗 **Live Demo:** [[https://pages.dev]](https://ecommerce-5w8.pages.dev/)
+🔗 **Live Demo:** https://ecommerce-5w8.pages.dev/
 
 ---
 
@@ -19,142 +19,52 @@ Aplikasi e-commerce modern dengan **React JS (Vite)**, **Tailwind CSS**, dan **S
    npm install
    ```
 
-3. **Buat file `.env.local`** di root proyek dan salin isi berikut:
+3. **Buat file `.env.local`** di root proyek:
    ```env
    VITE_SUPABASE_URL=
    VITE_SUPABASE_ANON_KEY=
    VITE_JWT_AUTH_URL=http://localhost:4000
    ```
-
-   > Ganti dengan nilai sebenarnya dari **Project Settings > API** pada [supabase.com](https://supabase.com).
+   Isi `VITE_SUPABASE_URL` & `VITE_SUPABASE_ANON_KEY` dari **Project Settings → API** di [supabase.com](https://supabase.com).
 
 4. **Jalankan development server:**
    ```bash
    npm run dev
    ```
-
    Buka `http://localhost:5173` di browser.
-
----
-
-## 🔎 Tampilan Aplikasi
-
-![Screenshot Home 1](./src/assets/github.png)
-![Screenshot Home 2](./src/assets/github2.png)
-
----
-
-## ⚠️ Keamanan
-
-**Jangan pernah mengunggah file `.env.local` (atau file env apa pun yang berisi token asli) ke GitHub.**
-
-Pastikan `.env*` (termasuk `.env.local`) ada di dalam `.gitignore`.
 
 ---
 
 ## 🔐 JWT Auth (HttpOnly Cookie)
 
-Backend berada di folder `server/`. Sistem ini memakai **JWT** yang disimpan dalam **HttpOnly Cookie** sehingga tidak terpapar ke serangan XSS. Backend di-deploy di **Cloudflare Workers** sebagai native Worker (tanpa Express).
+Backend berada di folder `server/` dan di-deploy sebagai **Cloudflare Worker** (native Worker, tanpa Express). Sistem memakai **JWT** yang disimpan dalam **HttpOnly Cookie** sehingga aman dari XSS.
 
-### Backend
-
-1. Masuk ke folder `server` dan install dependencies:
-   ```bash
-   cd server
-   npm install
-   ```
-
-2. Salin `.env` dan sesuaikan `JWT_SECRET` (gunakan nilai acak yang panjang di produksi):
-   ```bash
-   cp .env .env.local   # atau edit .env langsung
-   ```
-
-3. Jalankan server (port default `4000`):
-    ```bash
-    npm run dev
-    ```
-
-#### API Endpoints
-
-| Method | Endpoint       | Deskripsi                                                                 |
-|--------|----------------|---------------------------------------------------------------------------|
-| `POST` | `/api/login`   | Validasi kredensial, kirim JWT (`tokoryan_token`) sebagai HttpOnly cookie + token di body |
-| `POST` | `/api/logout`  | Hapus HttpOnly cookie `tokoryan_token`                                   |
-| `GET`  | `/api/me`      | Baca cookie, verifikasi JWT, kembalikan data user                         |
+### Endpoint
+| Method | Endpoint | Deskripsi |
+|--------|----------|-----------|
+| `POST` | `/api/login` | Validasi kredensial, kirim JWT (`tokoryan_token`) sebagai HttpOnly cookie |
+| `POST` | `/api/logout` | Hapus cookie |
+| `GET` | `/api/me` | Verifikasi JWT, kembalikan data user |
 
 **Production URL:** `https://ecommerce-jwt-auth-server.ryantrikurniawan16.workers.dev`
 
-#### CORS
+### Akun demo
+Di-seed lewat migrasi `20260810000000_profiles.sql` (password plaintext, khusus demo).
 
-Server menggunakan `credentials: true`. Origin yang diizinkan adalah `CLIENT_URL` (default `http://localhost:5173`) **beserta cermin `localhost`↔`127.0.0.1`**-nya, sehingga cookie dapat dikirim lintas origin yang berbeda baik saat akses via `localhost` maupun `127.0.0.1`. **Origin tambahan** dapat ditambahkan via env var `ALLOWED_ORIGINS` (comma-separated) di `wrangler.toml` — contohnya `ALLOWED_ORIGINS = "https://ecommerce-5w8.pages.dev"`. Origin yang tidak dikenali akan ditolak.
+| Username | Password | Role | Keterangan |
+|----------|----------|------|------------|
+| `admin` | `admin` | admin | Panel admin |
+| `toko` | `toko` | toko | Upload & kelola produk |
+| `courier` | `courier` | courier | Kelola pengiriman |
 
-#### Konfigurasi Cookie
-
-| Properti    | Nilai      | Keterangan                          |
-|-------------|------------|-------------------------------------|
-| Name        | `tokoryan_token` | Di-config via env `COOKIE_NAME`   |
-| `httpOnly`  | `true`     | Dilindungi dari akses JavaScript    |
-| `secure`    | Dynamic | `true` di HTTPS (prod via Cloudflare), `false` di localhost |
-| `sameSite`  | `"lax"`    | Mengizinkan pengiriman cross-site     |
-| `maxAge`    | `900000`   | 15 menit                            |
-| `path`      | `"/"`      | Berlaku untuk seluruh path          |
-
-#### Cleanup Local Storage
-
-Profil pengguna yang dikembalikan oleh backend JWT disimpan di `localStorage` sebagai `tokorayn_session`. Saat login atau logout, session lama di `localStorage` otomatis ditimpa/dihapus bersamaan dengan cookie HttpOnly.
-
-#### Akun demo
-
-Akun di bawah di-seed pada migrasi `20260810000000_profiles.sql` (password disimpan plaintext di DB untuk demo ini).
-
-| Username  | Password   | Role       | Keterangan                       |
-|-----------|------------|------------|----------------------------------|
-| `admin`   | `admin`    | admin      | Bisa akses panel admin           |
-| `toko`    | `toko`     | toko       | Bisa upload & kelola produk      |
-| `courier` | `courier`  | courier    | Bisa kelola pengiriman           |
-
-### Frontend
-
-- Logika otentikasi JWT ada di `src/context/AuthContext.tsx` — fungsi `login`/`logout` mengirimkan request ke backend dengan `credentials: "include"` agar cookie HttpOnly dikirim otomatis lintas origin.
-- Form login website (`src/pages/LoginPage.tsx`) sudah terhubung langsung ke sistem JWT melalui `AuthContext`, sehingga login standar aplikasi memakai backend JWT.
-- Pastikan variabel `VITE_JWT_AUTH_URL` ada di `.env.local` (`http://localhost:4000` untuk dev, atau URL production Worker untuk deployment).
-- Tidak ada lagi halaman dashboard terpisah; token JWT tidak disimpan di `localStorage` melainkan hanya di **HttpOnly Cookie** yang dikelola browser.
-
-#### Cara pakai dari dalam aplikasi
-
-1. Pastikan backend JWT berjalan (`npm run dev` di folder `server`).
-2. Buka aplikasi frontend (`npm run dev` di root).
-3. Buka halaman login (`http://localhost:5173`) dan login dengan kredensial di bawah.
-   4. Setelah login berhasil, cek **Inspect → Application → Cookies** — cookie `tokoryan_token` (HttpOnly, SameSite=Lax) akan muncul.
-   5. Profil pengguna disimpan di `localStorage` sebagai `tokorayn_session` untuk keperluan tampilan navbar/akses rol.---
+---
 
 ## 🚀 Deployment
 
-### Cloudflare Workers
-
-```bash
-cd server
-npx wrangler deploy
-```
-
-Pastikan variabel berikut diset di `wrangler.toml` → `[vars]` atau sebagai secret:
-
-| Variable             | Type   | Cara Set                          |
-|----------------------|--------|-----------------------------------|
-| `JWT_SECRET`         | Secret | `npx wrangler secret put JWT_SECRET` |
-| `SUPABASE_URL`       | Var    | `wrangler.toml` `[vars]`          |
-| `SUPABASE_ANON_KEY`  | Var    | `wrangler.toml` `[vars]`          |
-| `ALLOWED_ORIGINS`    | Var    | `wrangler.toml` `[vars]`          |
-| `CLIENT_URL`         | Var    | `wrangler.toml` `[vars]`          |
-
-Untuk development lokal:
-```bash
-cd server
-npm run dev
-```
+Frontend: Cloudflare Pages (Git-connected ke `main`).
+Backend: `cd server && npx wrangler deploy` (set `JWT_SECRET` sebagai secret).
 
 ---
 
 ## 📖 Lisensi
-
-Proyek ini dilisensikan di bawah lisensi MIT.
+MIT.
